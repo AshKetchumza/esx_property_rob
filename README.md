@@ -9,7 +9,7 @@ esx_policejob
 
 ```
 cd resources
-git clone https://github.com/ESX-Org/property_rob [esx]/property_rob
+git clone https://github.com/AshKetchumza/property_rob [esx]/property_rob
 ```
 
 
