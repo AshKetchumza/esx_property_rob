@@ -1,4 +1,4 @@
-# esx_property_rob
+# property_rob
 
 This resource for ESX adds property robberies
 
@@ -9,7 +9,7 @@ esx_policejob
 
 ```
 cd resources
-git clone https://github.com/ESX-Org/esx_property_rob [esx]/esx_property_rob
+git clone https://github.com/ESX-Org/property_rob [esx]/property_rob
 ```
 
 
@@ -18,5 +18,5 @@ git clone https://github.com/ESX-Org/esx_property_rob [esx]/esx_property_rob
 - Add this in your server.cfg :
 
 ```
-ensure esx_property_rob
+ensure property_rob
 ```
