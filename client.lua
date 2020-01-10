@@ -9,31 +9,15 @@ local Keys = {
   ["LEFT"] = 174, ["RIGHT"] = 175, ["TOP"] = 27, ["DOWN"] = 173,
 }
 
-local DoingBreak			        = false
-local GUI                     = {}   
 ESX                           = nil  
+local GUI                     = {}   
 GUI.Time                      = 0    
+local Robbing			            = false
+local GUI                     = {}   
 local PlayerData              = {}   
-local showPro                 = false
-local stealing                = false
-local peeking                 = false
+local ShowPercentage          = false
+local Stealing                = false
 local ESXLoaded               = false
-local chancePoliceNoti        = 100  
-local useBlip                 = false
-local useInteractSound        = false
-
-local text = "~g~[E]~w~ Lockpick" 
-local searchText = "~g~[E]~w~ Search" 
-local emptyMessage = "There is nothing here!" 
-local emptyMessage3D = "~r~Empty" 
-
-local lockpickQuestionText = "Do you want to lockpick the door?" 
-local noLockpickText = "You don't have any lockpicks" 
-local yesText = "Yes"
-local noText = "No"
-local youFound = "You found"
-local burglaryDetected = "A burglary has been detected at"
-
 local PlayerData              = {}
 
 Citizen.CreateThread(function ()
@@ -55,10 +39,10 @@ AddEventHandler('esx:playerLoaded', function(xPlayer)
     PlayerData = xPlayer
 end)
 
-RegisterNetEvent('property_rob:setFrozen')
-AddEventHandler('property_rob:setFrozen', function(house, status)
-    Config.burglaryPlaces[house].door.Frozen = status
-    local door = GetClosestObjectOfType(Config.burglaryPlaces[house].door.Coords, 2.0, GetHashKey(Config.burglaryPlaces[house].door.Object), false, 0, 0)
+RegisterNetEvent('property_rob:setLocked')
+AddEventHandler('property_rob:setLocked', function(property, status)
+    Config.Properties[property].door.locked = status
+    local door = GetClosestObjectOfType(Config.Properties[property].door.coords, 2.0, GetHashKey(Config.Properties[property].door.obj), false, 0, 0)
     FreezeEntityPosition(door, status)
 end)
 
@@ -70,25 +54,25 @@ Citizen.CreateThread(function()
       Wait(0)
   end
   Wait(50)
-  for i = 1, #Config.burglaryPlaces do        
-      ESX.TriggerServerCallback('property_rob:getDoorFreezeStatus', function(frozen)
-          Config.burglaryPlaces[i].door.Frozen = frozen
-          local door = GetClosestObjectOfType(Config.burglaryPlaces[i].door.Coords, 2.0, GetHashKey(Config.burglaryPlaces[i].door.Object), false, 0, 0)
-          FreezeEntityPosition(door, Config.burglaryPlaces[i].door.Frozen)
+  for i = 1, #Config.Properties do        
+      ESX.TriggerServerCallback('property_rob:doorStatusSet', function(locked)
+          Config.Properties[i].door.locked = locked
+          local door = GetClosestObjectOfType(Config.Properties[i].door.coords, 2.0, GetHashKey(Config.Properties[i].door.obj), false, 0, 0)
+          FreezeEntityPosition(door, Config.Properties[i].door.locked)
       end, i)      
   end
   while true do
       local player = PlayerPedId()
       local coords = GetEntityCoords(player)
-      for i = 1, #Config.burglaryPlaces do
+      for i = 1, #Config.Properties do
           Wait(0)
-          local v = Config.burglaryPlaces[i]
+          local v = Config.Properties[i]
           local d = v.door
           local door = GetClosestObjectOfType(d.Coords, 2.0, GetHashKey(d.Object), false, 0, 0)            
           if door ~= nil then
-              FreezeEntityPosition(door, d.Frozen)
-              if d.Frozen then
-                  SetEntityHeading(door, d.Heading)
+              FreezeEntityPosition(door, d.locked)
+              if d.locked then
+                  SetEntityHeading(door, d.heading)
               end
           end          
       end
@@ -99,17 +83,17 @@ end)
 Citizen.CreateThread(function()
   while true do
     Citizen.Wait(5)
-    for k,v in pairs(Config.burglaryPlaces) do
+    for k,v in pairs(Config.Properties) do
       local playerPed = PlayerPedId()
-      local house = k
+      local property = k
       local coords = GetEntityCoords(playerPed)
       local dist   = GetDistanceBetweenCoords(v.pos.x, v.pos.y, v.pos.z, coords.x, coords.y, coords.z, false)
-      if dist <= 30.0 and DoingBreak == false then
-        if dist <= 1.2 and DoingBreak == false then
+      if dist <= 30.0 and Robbing == false then
+        if dist <= 1.2 and Robbing == false then
           if v.locked then
-            DrawText3D(v.pos.x, v.pos.y, v.pos.z, text, 0.4)                  
+            DrawText3D(v.pos.x, v.pos.y, v.pos.z, "~g~[E]~w~ Lockpick", 0.4)                  
               if IsControlJustPressed(0, Keys["E"]) then
-                confMenu(house)
+                LockPickMenu(property)
               end
           end        
         end
@@ -119,21 +103,21 @@ Citizen.CreateThread(function()
 end)
 
 Citizen.CreateThread(function()
-    while stealing == false do
+    while Stealing == false do
       Citizen.Wait(5)
       for k,v in pairs(Config.burglaryInside) do
         local playerPed = PlayerPedId()
         local coords = GetEntityCoords(playerPed)
         local dist   = GetDistanceBetweenCoords(v.x, v.y, v.z, coords.x, coords.y, coords.z, false)
         if dist <= 1.2 and v.amount > 0 then
-            DrawText3D(v.x, v.y, v.z, searchText, 0.4)
+            DrawText3D(v.x, v.y, v.z, "~g~[E]~w~ Search", 0.4)
             if dist <= 0.5 and IsControlJustPressed(0, Keys["E"]) then
-              steal(k)
+              SearchForItems(k)
             end
         elseif v.amount < 1 and dist <= 1.2 then
-          DrawText3D(v.x, v.y, v.z, emptyMessage3D, 0.4)
+          DrawText3D(v.x, v.y, v.z, "~r~Empty", 0.4)
           if IsControlJustPressed(0, Keys["E"]) and dist <= 0.5 then 
-            ESX.ShowNotification(emptyMessage)
+            ESX.ShowNotification("There is nothing here")
           end
         end
       end
@@ -143,20 +127,38 @@ end)
 Citizen.CreateThread(function()
 	while true do
     Citizen.Wait(6)
-    if showPro == true then
+    if ShowPercentage == true then
       local playerPed = PlayerPedId()
 		  local coords = GetEntityCoords(playerPed)
-      DrawText3D(coords.x, coords.y, coords.z, TimeLeft .. '~g~%', 0.4)
+      DrawText3D(coords.x, coords.y, coords.z, perc .. '~g~%', 0.4)
     end
 	end
 end)
 
+Citizen.CreateThread(function()
+  while true do
+    Citizen.Wait(5)
+    for k,v in pairs(Config.PawnShops) do
+      local playerPed = PlayerPedId()
+      local coords = GetEntityCoords(playerPed)
+      local dist = GetDistanceBetweenCoords(v.pos.x, v.pos.y, v.pos.z, coords.x, coords.y, coords.z, false)
+      if dist <= 4 then
+        DrawMarker(25, v.pos.x, v.pos.y, v.pos.z - 0.98, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.2, 1.2, 1.0, 255, 255, 255, 155, false, false, 2, false)
+        DrawText3D(v.pos.x, v.pos.y, v.pos.z, '~g~[E]~w~ Sell Items', 0.4)
+        if dist <= 0.5 and IsControlJustPressed(0, Keys["E"]) then
+          PawnShopMenu()
+        end
+      end
+    end
+  end
+end)
+
 RegisterNetEvent('property_rob:msgPolice')
 AddEventHandler('property_rob:msgPolice', function(coords)    
-	  ESX.ShowNotification("A ~r~house alarm ~w~was set off by an intruder", 7000)
+	  ESX.ShowNotification("An ~r~alarm ~w~was set off by an intruder", 7000)
     while true do
         local name = GetCurrentResourceName() .. math.random(999)
-        AddTextEntry(name, '~INPUT_CONTEXT~ ' .. 'Set a waypoint to the house' .. '\n~INPUT_FRONTEND_RRIGHT~ ' .. 'Close this box')
+        AddTextEntry(name, '~INPUT_CONTEXT~ ' .. 'Set a waypoint to the property' .. '\n~INPUT_FRONTEND_RRIGHT~ ' .. 'Close this box')
         DisplayHelpTextThisFrame(name, false)
         if IsControlPressed(0, 38) then
             SetNewWaypoint(coords.x, coords.y)
@@ -168,17 +170,17 @@ AddEventHandler('property_rob:msgPolice', function(coords)
     end
 end)
 
-function confMenu(house)
-  local v = GetHouseValues(house, Config.burglaryPlaces)
+function LockPickMenu(property)
+  local v = GetPropertyValues(property, Config.Properties)
   Citizen.CreateThread(function()
   ESX.UI.Menu.CloseAll()
-		ESX.UI.Menu.Open('default', GetCurrentResourceName(), 'conf_menu',
+		ESX.UI.Menu.Open('default', GetCurrentResourceName(), 'lockpick_menu',
 		{
-			title = lockpickQuestionText,
+			title = 'Do you want to lockpick the door?',
 			align = 'center',
 			elements = {
-        {label = yesText, value = 'yes'},
-        {label = noText, value = 'no'}
+        {label = 'Yes', value = 'yes'},
+        {label = 'Cancel', value = 'no'}
 			}
 		},
 		function(data, menu)
@@ -193,15 +195,15 @@ function confMenu(house)
             end
         end
         if LockpickAmount > 0 then
-          HouseBreak(house)
+          BreakIntoProperty(property)
           v.locked = false
           Citizen.Wait(math.random(15000,30000))
           local random = math.random(0, 100)
-          if random <= chancePoliceNoti then                  
+          if random <= Config.PoliceNotiChance then                  
             TriggerServerEvent('property_rob:alarm', { x = v.pos.x, y = v.pos.y, z = v.pos.z })
           end
         else 
-          ESX.ShowNotification(noLockpickText)
+          ESX.ShowNotification("You don't have any lockpicks")
         end
 
 		  elseif data.current.value == 'no' then 
@@ -211,48 +213,79 @@ function confMenu(house)
   end)
 end
 
-function steal(k)
-    local values = GetHouseValues(k, Config.burglaryInside)
+function PawnShopMenu()  
+  Citizen.CreateThread(function()
+    local elements = {}
+    for k, v in pairs(ESX.GetPlayerData().inventory) do   
+      if Config.Items[v.name] ~= nil then
+        local price = Config.Items[v.name].price
+        if v.count > 0 then
+            table.insert(elements, {label = v.label .. ' $' .. tostring(Config.Items[v.name].price), value = Config.Items[v.name]})
+        end
+      end    
+    end 
+    table.insert(elements, {label = 'Close', value = 'close'})
+    if #elements > 1 then
+      ESX.UI.Menu.CloseAll()
+        ESX.UI.Menu.Open('default', GetCurrentResourceName(), 'pawnshop_menu',
+        {
+          title = 'What would you like to sell?',
+          align = 'bottom-right',
+          elements = elements
+        },
+        function(data, menu)
+          menu.close()
+
+          if data.current.value == 'close' then 
+            print('Closed')
+          else
+            TriggerServerEvent('property_rob:sellItemToPawnShop', data.current.value.item, 1, data.current.value.price)
+          end
+        end)
+    else
+      ESX.ShowNotification("You have nothing of value to sell here")
+    end  
+  end)  
+end
+
+function SearchForItems(k)
+    local propInfo = GetPropertyValues(k, Config.burglaryInside)
     local playerPed = PlayerPedId()
-    stealing = true
+    Stealing = true
     FreezeEntityPosition(playerPed, true)
     TaskStartScenarioInPlace(playerPed, "PROP_HUMAN_BUM_BIN", 0, true)
     Citizen.Wait(2000)
-    procent(50)
-    if values.amount >= 2 then
+    GetPercentage(50)
+    if propInfo.amount >= 2 then
       local rndm = math.random(1,2)
-      TriggerServerEvent('property_rob:Add', values.item, rndm)
+      TriggerServerEvent('property_rob:addItemToInventory', propInfo.item, rndm)
         ESX.ShowNotification( 'You found something' )
-        values.amount = values.amount - rndm
+        propInfo.amount = propInfo.amount - rndm
     else
-      TriggerServerEvent('property_rob:Add', values.item, 1)
+      TriggerServerEvent('property_rob:addItemToInventory', propInfo.item, 1)
         ESX.ShowNotification( 'You found something' )
-        values.amount = values.amount - 1
+        propInfo.amount = propInfo.amount - 1
     end
     ClearPedTasks(playerPed)
     FreezeEntityPosition(playerPed, false)
-    stealing = false
+    Stealing = false
 end
 
-function HouseBreak(house)
-  local v = GetHouseValues(house, Config.burglaryPlaces)
+function BreakIntoProperty(property)
+  local v = GetPropertyValues(property, Config.Properties)
   local playerPed = PlayerPedId()
-  DoingBreak = true
+  Robbing = true
   FreezeEntityPosition(playerPed, true)
   SetEntityCoords(playerPed, v.animPos.x, v.animPos.y, v.animPos.z - 0.98)
   SetEntityHeading(playerPed, v.animPos.h)
-  loaddict("mini@safe_cracking")
-  TaskPlayAnim(playerPed, "mini@safe_cracking", "idle_base", 3.5, -8, -1, 2, 0, 0, 0, 0, 0)
-  if useInteractSound then
-  TriggerServerEvent('InteractSound_SV:PlayWithinDistance', 3.0, 'lockpick', 0.7)
-  end
-  procent(70)
-  TriggerServerEvent('property_rob:Remove', 'lockpick', 1)
+  LoadAnim("mini@safe_cracking")
+  TaskPlayAnim(playerPed, "mini@safe_cracking", "idle_base", 3.5, -8, -1, 2, 0, 0, 0, 0, 0)  
+  GetPercentage(70)
+  TriggerServerEvent('property_rob:removeItemFromInventory', 'lockpick', 1)
   ClearPedTasks(playerPed)
   FreezeEntityPosition(playerPed, false)
-  TriggerServerEvent('property_rob:setDoorFreezeStatus', house, false)
+  TriggerServerEvent('property_rob:doorStatusGet', property, false)
 end
-
 
 function SetCoords(playerPed, x, y, z)
   SetEntityCoords(playerPed, x, y, z)
@@ -260,13 +293,7 @@ function SetCoords(playerPed, x, y, z)
   SetEntityCoords(playerPed, x, y, z)
 end
 
-function fade()
-  DoScreenFadeOut(1000)
-  Citizen.Wait(1000)
-  DoScreenFadeIn(1000)
-end
-
-function loaddict(dict)
+function LoadAnim(dict)
   while not HasAnimDictLoaded(dict) do
     RequestAnimDict(dict)
     Wait(10)
@@ -292,34 +319,33 @@ function DrawText3D(x, y, z, text, scale)
   DrawRect(_x, _y + 0.015, 0.005 + factor, 0.03, 31, 31, 31, 155)
 end
 
-function procent(time)
-  showPro = true
-  TimeLeft = 0
+function GetPercentage(time)
+  ShowPercentage = true
+  perc = 0
   repeat
-  TimeLeft = TimeLeft + 1        -- thank you (github.com/Loffes)
+  perc = perc + 1
   Citizen.Wait(time)
-  until(TimeLeft == 100)
-  showPro = false
+  until(perc == 100)
+  ShowPercentage = false
 end
 
-function GetHouseValues(house, pair)
+function GetPropertyValues(property, pair)
     for k,v in pairs(pair) do
-        if k == house then
+        if k == property then
             return v
         end
     end
 end
 
-if useBlip then
+if Config.ShowMapBlip then
   Citizen.CreateThread(function()
-    for k,v in pairs(Config.burglaryPlaces) do
+    for k,v in pairs(Config.Properties) do
     local blip = AddBlipForCoord(v.pos.x, v.pos.y, v.pos.z)
     SetBlipSprite (blip, 40)
     SetBlipDisplay(blip, 4)
     SetBlipScale  (blip, 0.8)
     SetBlipColour (blip, 39)
     SetBlipAsShortRange(blip, true)
-
     BeginTextCommandSetBlipName("STRING")
     AddTextComponentString('Burglary')
     EndTextCommandSetBlipName(blip)
@@ -327,7 +353,18 @@ if useBlip then
   end)
 end
 
-RegisterNetEvent('property_rob:Sound')
-AddEventHandler('property_rob:Sound', function(sound1, sound2)
-  PlaySoundFrontend(-1, sound1, sound2)
-end)
+if Config.ShowPawnShopBlip then
+  Citizen.CreateThread(function()
+    for k,v in pairs(Config.PawnShops) do
+    local blip = AddBlipForCoord(v.pos.x, v.pos.y, v.pos.z)
+    SetBlipSprite (blip, 431)
+    SetBlipDisplay(blip, 4)
+    SetBlipScale  (blip, 0.7)
+    SetBlipColour (blip, 70)
+    SetBlipAsShortRange(blip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString('Pawn Shop')
+    EndTextCommandSetBlipName(blip)
+    end
+  end)
+end

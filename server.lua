@@ -2,19 +2,12 @@ ESX = nil
 
 TriggerEvent('esx:getSharedObject', function(obj) ESX = obj end)
 
-local win1 = 100 
-local win2 = 1200
-local win3 = 2500
-
-local winText = "You won ~g~$"
-local ticketEmpty = "You won ~r~nothing"
-
-ESX.RegisterServerCallback('property_rob:getDoorFreezeStatus', function(source, cb, house)
-    cb(Config.burglaryPlaces[house].door.Frozen)
+ESX.RegisterServerCallback('property_rob:doorStatusSet', function(source, cb, property)
+    cb(Config.Properties[property].door.locked)
 end)
 
-RegisterServerEvent('property_rob:setDoorFreezeStatus')
-AddEventHandler('property_rob:setDoorFreezeStatus', function(house, status)
+RegisterServerEvent('property_rob:doorStatusGet')
+AddEventHandler('property_rob:doorStatusGet', function(property, status)
     if status == false then
         local src = source
         local cops = 0
@@ -25,60 +18,38 @@ AddEventHandler('property_rob:setDoorFreezeStatus', function(house, status)
                 cops = cops + 1
             end
         end
-        if cops >= Config.burglaryPlaces[house].cops then
-            Config.burglaryPlaces[house].door.Frozen = status
+        if cops >= Config.Properties[property].cops then
+            Config.Properties[property].door.locked = status
         else
-            sendNotification(src, 'There aren\'t enough cops online!', 'error', 3500)
+            sendNotification(src, "There needs to be at least " .. Config.Properties[property].cops .. " in the city", 'error', 3500)
         end
     else
-        Config.burglaryPlaces[house].door.Frozen = status
+        Config.Properties[property].door.locked = status
     end
-    TriggerClientEvent('property_rob:setFrozen', -1, house, Config.burglaryPlaces[house].door.Frozen)
+    TriggerClientEvent('property_rob:setLocked', -1, property, Config.Properties[property].door.locked)
 end)
 
-RegisterServerEvent('property_rob:Add')
-AddEventHandler('property_rob:Add', function(item, qtty)
+RegisterServerEvent('property_rob:addItemToInventory')
+AddEventHandler('property_rob:addItemToInventory', function(item, count)
 	local src = source
 	local xPlayer = ESX.GetPlayerFromId(src)
-	xPlayer.addInventoryItem(item, qtty)
+	xPlayer.addInventoryItem(item, count)
 end)
 
-RegisterServerEvent('property_rob:Remove')
-AddEventHandler('property_rob:Remove', function(item, qtty)
+RegisterServerEvent('property_rob:removeItemFromInventory')
+AddEventHandler('property_rob:removeItemFromInventory', function(item, count)
 	local src = source
 	local xPlayer = ESX.GetPlayerFromId(src)
-	xPlayer.removeInventoryItem(item, qtty)
+	xPlayer.removeInventoryItem(item, count)
 end)
 
-ESX.RegisterUsableItem('lotteryticket', function(source)
+RegisterServerEvent('property_rob:sellItemToPawnShop')
+AddEventHandler('property_rob:sellItemToPawnShop', function(item, count, price)
 	local src = source
 	local xPlayer = ESX.GetPlayerFromId(src)
-	local rndm = math.random(1,11)
-	xPlayer.removeInventoryItem('lotteryticket', 1)
-
-	if rndm == 1 then
-		xPlayer.addMoney(win1)
-		TriggerClientEvent('property_rob:Sound', src, "LOCAL_PLYR_CASH_COUNTER_COMPLETE", "DLC_HEISTS_GENERAL_FRONTEND_SOUNDS")
-		TriggerClientEvent('esx:showNotification', src, winText .. win1)
-	end
-
-	if rndm == 2 then
-		xPlayer.addMoney(win2)
-		TriggerClientEvent('property_rob:Sound', src, "LOCAL_PLYR_CASH_COUNTER_COMPLETE", "DLC_HEISTS_GENERAL_FRONTEND_SOUNDS")
-		TriggerClientEvent('esx:showNotification', src, winText .. win2)
-	end
-
-	if rndm == 3 then
-		xPlayer.addMoney(win3)
-		TriggerClientEvent('property_rob:Sound', src, "LOCAL_PLYR_CASH_COUNTER_COMPLETE", "DLC_HEISTS_GENERAL_FRONTEND_SOUNDS")
-		TriggerClientEvent('esx:showNotification', src, winText .. win3)
-	end
-
-	if rndm >= 4 then
-		TriggerClientEvent('property_rob:Sound', src, "NO", "HUD_FRONTEND_DEFAULT_SOUNDSET")
-		TriggerClientEvent('esx:showNotification', src, ticketEmpty)
-	end
-
+	xPlayer.removeInventoryItem(item, count)
+	xPlayer.addMoney(price)
+	TriggerClientEvent('esx:showNotification', src, 'Sold ' .. item .. ' for ~g~$' .. price)
 end)
 
 RegisterServerEvent('property_rob:alarm')
