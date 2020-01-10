@@ -15,5 +15,5 @@ git clone https://github.com/ESX-Org/esx_property_rob [esx]/esx_property_rob
 - Add this in your server.cfg :
 
 ```
-ensure esx_policejob
+ensure esx_property_rob
 ```
