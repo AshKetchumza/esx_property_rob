@@ -220,7 +220,7 @@ function PawnShopMenu()
       if Config.Items[v.name] ~= nil then
         local price = Config.Items[v.name].price
         if v.count > 0 then
-            table.insert(elements, {label = v.label .. ' $' .. tostring(Config.Items[v.name].price), value = Config.Items[v.name]})
+          table.insert(elements, {label = '[' .. tostring(v.count) .. '] ' .. v.label .. ' $' .. tostring(Config.Items[v.name].price), value = Config.Items[v.name]})
         end
       end    
     end 
